@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Poker Configurator Live</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    
+    <!-- Подключаем Firebase SDK (Compat версия для простоты) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+    
+    <style>
+        body { background-color: #f0f2f5; font-family: -apple-system, system-ui, sans-serif; padding-bottom: 50px; }
+        .header { background: #1a1d21; color: white; padding: 15px; text-align: center; border-bottom: 3px solid #0d6efd; position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+        .card { border: none; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 12px; padding: 16px; background: white; }
+        .label-title { font-weight: 800; color: #212529; font-size: 0.8rem; text-transform: uppercase; margin-bottom: 8px; display: block; letter-spacing: 0.5px; }
+        .form-check-input { width: 2.8em; height: 1.4em; cursor: pointer; }
+        .note-input { font-size: 0.85rem; margin-top: 10px; border: 1px dashed #ced4da !important; color: #6c757d; border-radius: 8px; }
+        .form-control, .form-select { border-radius: 10px; padding: 10px; border: 1px solid #dee2e6; }
+        .status-bar { font-size: 10px; font-weight: bold; letter-spacing: 1px; color: #28a745; margin-top: 5px; }
+        .input-group-text { background: #f8f9fa; border-radius: 10px 0 0 10px; font-size: 0.9rem; color: #6c757d; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div class="fw-bold">CONFIGURATOR PRO</div>
+    <div id="status" class="status-bar">● СИНХРОНИЗАЦИЯ LIVE</div>
+</div>
+
+<div class="container mt-3" id="app-content">
+    <div class="text-center p-5">Подключение к облаку...</div>
+</div>
+
+<script>
+    // ТВОЯ КОНФИГУРАЦИЯ FIREBASE
+    const firebaseConfig = {
+        apiKey: "AIzaSyAxb1CMlGfwdl0-ZLumNPMhQ5gc8nVHTAk",
+        authDomain: "configurator-3f340.firebaseapp.com",
+        projectId: "configurator-3f340",
+        storageBucket: "configurator-3f340.firebasestorage.app",
+        messagingSenderId: "412615987048",
+        appId: "1:412615987048:web:18902eae53f76637b490dd",
+        databaseURL: "https://configurator-3f340-default-rtdb.europe-west1.firebasedatabase.app/" 
+    };
+
+    // Инициализация
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const configRef = db.ref('poker_table_settings');
+
+    // Структура полей
+    const fields = [
+        { id: 'underframe', name: 'Подстолье', type: 'toggle' },
+        { id: 'table_main', name: 'Стол', type: 'input_num' },
+        { id: 'bort', name: 'Борт', type: 'input' },
+        { id: 'overlay', name: 'Накладка', type: 'input' },
+        { id: 'fleet', name: 'Флот', type: 'toggle' },
+        { id: 'lighting', name: 'Подсветка', type: 'select', options: ['Выкл', 'Снаружи', 'Внутри', 'По кругу'] },
+        { id: 'cupholders', name: 'Подстаканники', type: 'cups' }
+    ];
+
+    // Функция обновления в Firebase
+    function dbUpdate(id, val, note) {
+        let updateData = {};
+        if (val !== undefined) updateData[`${id}/val`] = val;
+        if (note !== undefined) updateData[`${id}/note`] = note;
+        configRef.update(updateData);
+    }
+
+    // Рендер приложения
+    function renderApp(snapshot) {
+        const data = snapshot.val() || {};
+        const container = document.getElementById('app-content');
+        container.innerHTML = '';
+
+        fields.forEach(f => {
+            const current = data[f.id] || { val: (f.type === 'toggle' ? 'Нет' : ''), note: '' };
+            let html = `<div class="card"><span class="label-title">${f.name}</span>`;
+
+            // Тумблеры
+            if (f.type === 'toggle') {
+                const checked = current.val === 'Да' ? 'checked' : '';
+                html += `<div class="form-check form-switch d-flex align-items-center gap-3">
+                            <input class="form-check-input" type="checkbox" ${checked} onchange="dbUpdate('${f.id}', this.checked?'Да':'Нет')">
+                            <label class="fw-bold">${current.val || 'Нет'}</label>
+                         </div>`;
+            }
+            // Стол (со значением и примечанием)
+            else if (f.type === 'input_num') {
+                html += `<div class="input-group">
+                            <span class="input-group-text">Кол-во/Тип:</span>
+                            <input class="form-control" value="${current.val || ''}" onchange="dbUpdate('${f.id}', this.value)">
+                         </div>`;
+            }
+            // Подсветка
+            else if (f.type === 'select') {
+                html += `<select class="form-select" onchange="dbUpdate('${f.id}', this.value)">
+                            ${f.options.map(o => `<option ${current.val==o?'selected':''}>${o}</option>`).join('')}
+                         </select>`;
+            }
+            // Подстаканники
+            else if (f.type === 'cups') {
+                const isCustom = String(current.val).includes('Не стандарт');
+                const count = String(current.val).split(':')[1] || '';
+                html += `<select class="form-select mb-2" onchange="let v = this.value === 'Не стандарт' ? 'Не стандарт:1' : 'Стандарт'; dbUpdate('${f.id}', v)">
+                            <option value="Стандарт" ${!isCustom?'selected':''}>Стандарт</option>
+                            <option value="Не стандарт" ${isCustom?'selected':''}>Не стандарт</option>
+                         </select>`;
+                if (isCustom) {
+                    html += `<div class="input-group"><span class="input-group-text">Штук:</span>
+                             <input type="number" class="form-control" value="${count}" onchange="dbUpdate('${f.id}', 'Не стандарт:' + this.value)"></div>`;
+                }
+            }
+            // Борт и Накладка
+            else {
+                html += `<input class="form-control" placeholder="..." value="${current.val || ''}" onchange="dbUpdate('${f.id}', this.value)">`;
+            }
+
+            // Примечание (общее для всех)
+            html += `<input class="form-control note-input" placeholder="Примечание..." value="${current.note || ''}" onchange="dbUpdate('${f.id}', undefined, this.value)"></div>`;
+            container.innerHTML += html;
+        });
+    }
+
+    // Слушаем базу в реальном времени
+    configRef.on('value', renderApp);
+</script>
+
+</body>
+</html>
