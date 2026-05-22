@@ -8,12 +8,20 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
     <style>
-        body { background: #1a1a1a; color: #ffffff; padding: 15px; font-family: Arial, sans-serif; }
-        .card { background: #262626; border-left: 5px solid #28a745; border-radius: 8px; padding: 15px; margin-bottom: 15px; }
-        label { font-weight: bold; color: #28a745; margin-bottom: 5px; display: block; }
+        body { background: #1a1a1a; color: #ffffff; padding: 15px; font-family: sans-serif; }
+        .card { background: #262626; border: 1px solid #333; border-radius: 10px; padding: 15px; margin-bottom: 15px; }
+        
+        /* Заголовки и примечания в цвете c2b8b8 */
+        .field-label { color: #c2b8b8; font-weight: bold; margin-bottom: 5px; display: block; }
+        .note-placeholder { color: #c2b8b8; font-size: 0.8rem; margin-top: 5px; }
+        
         .form-control, .form-select { background: #333 !important; color: #fff !important; border: 1px solid #555 !important; }
+        
+        /* Зеленые ползунки */
+        .form-check-input:checked { background-color: #28a745 !important; border-color: #28a745 !important; }
+        
         .btn-poker { background: #28a745; border: none; color: white; font-weight: bold; font-size: 1.1rem; }
-        .history-item { font-size: 0.85rem; padding: 10px; border-bottom: 1px solid #333; }
+        .history-item { font-size: 0.85rem; padding: 10px; border-bottom: 1px solid #333; color: #ddd; }
         h4 { color: #28a745; text-transform: uppercase; margin-bottom: 20px; }
     </style>
 </head>
@@ -24,7 +32,7 @@
     <div id="app-fields"></div>
     <button class="btn btn-poker w-100 py-3 mb-4" onclick="saveAll()">СОХРАНИТЬ</button>
     
-    <h5 style="color: #28a745;">История последних правок:</h5>
+    <h5 class="field-label">История последних правок:</h5>
     <div id="history-log" class="card"></div>
 </div>
 
@@ -56,12 +64,16 @@
 
     const container = document.getElementById('app-fields');
     fields.forEach(f => {
-        let html = `<div class="card"><label>${f.name}</label>`;
-        if (f.type === 'toggle') html += `<input type="checkbox" id="${f.id}" class="form-check-input">`;
+        let html = `<div class="card"><label class="field-label">${f.name}</label>`;
+        if (f.type === 'toggle') {
+            html += `<div class="form-check form-switch"><input type="checkbox" class="form-check-input" id="${f.id}" style="transform: scale(1.5);"></div>`;
+        }
         else if (f.type === 'select' || f.type === 'select_size') {
             html += `<select class="form-select" id="${f.id}" onchange="checkSize(this)">${f.opts.map(o => `<option>${o}</option>`).join('')}</select>`;
-            if(f.type === 'select_size') html += `<input class="form-control mt-2 d-none" id="custom-${f.id}" placeholder="Укажите размер (мм)...">`;
-        } else html += `<input class="form-control" id="${f.id}" placeholder="...">`;
+            if(f.type === 'select_size') html += `<input class="form-control mt-2 d-none" id="custom-${f.id}" placeholder="Введите размер (мм)...">`;
+        } else {
+            html += `<input class="form-control" id="${f.id}" placeholder="...">`;
+        }
         
         html += `<input class="form-control mt-2" id="note-${f.id}" placeholder="Примечание..."></div>`;
         container.innerHTML += html;
@@ -84,7 +96,7 @@
             data.details[f.name] = v + (note.value ? ` | Прим: ${note.value}` : '');
         });
         db.ref('history').push(data);
-        alert("Сохранено!");
+        alert("Конфигурация сохранена!");
     }
 
     db.ref('history').limitToLast(5).on('value', (snapshot) => {
