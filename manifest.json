@@ -1,0 +1,16 @@
+{
+  "name": "Конфигуратор Poker",
+  "short_name": "PokerConf",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1a1d21",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2951/2951239.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
