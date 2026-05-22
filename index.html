@@ -8,21 +8,22 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
     <style>
-        body { background: #f8f9fa; padding-bottom: 80px; }
-        .card { border-radius: 15px; margin-bottom: 10px; padding: 15px; }
-        .history-item { font-size: 0.8rem; border-bottom: 1px solid #eee; padding: 5px 0; }
+        body { background: #f0f2f5; padding-bottom: 60px; }
+        .card { border-radius: 15px; margin-bottom: 12px; padding: 15px; border: none; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .history-item { font-size: 0.75rem; border-bottom: 1px solid #eee; padding: 8px; color: #555; }
     </style>
 </head>
 <body>
 
-<div class="container mt-4">
-    <h4>Конфигуратор стола</h4>
+<div class="container mt-3">
+    <div class="card bg-dark text-white text-center mb-3"><b>CONFIGURATOR PRO</b></div>
     <div id="app-fields"></div>
-    <button class="btn btn-primary w-100 mt-3" onclick="saveAll()">СОХРАНИТЬ КОНФИГУРАЦИЮ</button>
+    <button class="btn btn-primary w-100 py-3 fw-bold shadow" onclick="saveAll()">СОХРАНИТЬ КОНФИГУРАЦИЮ</button>
     
-    <hr>
-    <h5>История изменений:</h5>
-    <div id="history-log" class="card"></div>
+    <div class="mt-4">
+        <h6>История последних сохранений:</h6>
+        <div id="history-log" class="card"></div>
+    </div>
 </div>
 
 <script>
@@ -38,38 +39,49 @@
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
-    
-    // Вводим имя при входе
-    const userName = localStorage.getItem('pokerUser') || prompt("Введите ваше имя:");
+    const userName = localStorage.getItem('pokerUser') || prompt("Представьтесь (имя для истории):") || "Мастер";
     localStorage.setItem('pokerUser', userName);
 
-    const fields = ['Подстолье', 'Стол', 'Борт', 'Накладка', 'Флот', 'Подсветка', 'Подстаканники'];
-    
-    // Отрисовка полей
+    // Отрисовка интерфейса
     const container = document.getElementById('app-fields');
+    const fields = [
+        { id: 'podstole', name: 'Подстолье', type: 'toggle' },
+        { id: 'stol', name: 'Стол', type: 'input' },
+        { id: 'bort', name: 'Борт', type: 'input' },
+        { id: 'nakladka', name: 'Накладка', type: 'input' },
+        { id: 'fleet', name: 'Флот', type: 'toggle' },
+        { id: 'light', name: 'Подсветка', type: 'select', opts: ['Выкл', 'Снаружи', 'Внутри', 'По кругу'] },
+        { id: 'cups', name: 'Подстаканники', type: 'select', opts: ['Стандарт', 'Не стандарт'] }
+    ];
+
     fields.forEach(f => {
-        container.innerHTML += `<div class="card">${f}: <input class="form-control" id="val-${f}"></div>`;
+        let html = `<div class="card"><label class="small fw-bold text-muted">${f.name}</label>`;
+        if (f.type === 'toggle') html += `<div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="${f.id}"></div>`;
+        else if (f.type === 'select') {
+            html += `<select class="form-select" id="${f.id}">${f.opts.map(o => `<option>${o}</option>`).join('')}</select>`;
+        } else {
+            html += `<input class="form-control" id="${f.id}" placeholder="...">`;
+        }
+        container.innerHTML += html + `</div>`;
     });
 
-    // Функция сохранения
     function saveAll() {
         let data = { timestamp: Date.now(), user: userName, details: {} };
         fields.forEach(f => {
-            data.details[f] = document.getElementById(`val-${f}`).value;
+            const el = document.getElementById(f.id);
+            data.details[f.name] = (f.type === 'toggle' ? (el.checked ? 'Да' : 'Нет') : el.value);
         });
         
-        db.ref('history').push(data); // Записываем в историю
-        db.ref('current').set(data);   // Обновляем текущее состояние
-        alert("Сохранено!");
+        db.ref('history').push(data);
+        alert("Конфигурация сохранена в базу!");
     }
 
-    // Загрузка истории
     db.ref('history').limitToLast(5).on('value', (snapshot) => {
         const log = document.getElementById('history-log');
         log.innerHTML = '';
         snapshot.forEach(child => {
-            const val = child.val();
-            log.innerHTML += `<div class="history-item"><b>${val.user}</b>: ${new Date(val.timestamp).toLocaleTimeString()}</div>`;
+            const v = child.val();
+            log.innerHTML += `<div class="history-item"><b>${v.user}</b> (${new Date(v.timestamp).toLocaleTimeString()}): ${JSON.stringify(v.details).replace(/[{}"']/g, '').replace(/,/g, ', ')}</div>`;
         });
     });
 </script>
