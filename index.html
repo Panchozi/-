@@ -4,20 +4,36 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Custom Poker</title>
+    <!-- Ссылка на иконку -->
+    <link rel="apple-touch-icon" href="icon.jpg">
+    <link rel="manifest" href="manifest.json">
+    
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
     <style>
-        body { background: #f8f9fa; padding: 20px; }
-        .card { padding: 15px; margin-bottom: 10px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        body { background: #1a1a1a; color: #ffffff; padding: 15px; font-family: sans-serif; }
+        .card { background: #262626; border-left: 5px solid #28a745; border-radius: 8px; padding: 15px; margin-bottom: 15px; }
+        label { font-weight: bold; color: #28a745; margin-bottom: 5px; display: block; }
+        .form-control, .form-select { background: #333 !important; color: #fff !important; border: 1px solid #555 !important; }
+        .note-input { color: #ffffff !important; border: 1px dashed #777 !important; }
+        .note-input::placeholder { color: #aaaaaa; }
+        .form-check-input { transform: scale(1.3); cursor: pointer; }
+        .form-check-input:checked { background-color: #28a745 !important; border-color: #28a745 !important; }
+        .btn-poker { background: #28a745; border: none; color: white; font-weight: bold; font-size: 1.1rem; }
+        .history-item { font-size: 0.85rem; padding: 10px; border-bottom: 1px solid #333; color: #ddd; }
+        h4 { color: #28a745; text-transform: uppercase; margin-bottom: 20px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h4>Конфигуратор стола</h4>
+    <h4 class="text-center">Custom Poker</h4>
     <div id="app-fields"></div>
-    <button class="btn btn-success w-100 mt-3" onclick="saveData()">СОХРАНИТЬ</button>
+    <button class="btn btn-poker w-100 py-3 mb-4" onclick="saveAll()">СОХРАНИТЬ</button>
+    
+    <h5 style="color: #28a745;">История последних правок:</h5>
+    <div id="history-log" class="card"></div>
 </div>
 
 <script>
@@ -33,30 +49,60 @@
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
+    const userName = localStorage.getItem('pokerUser') || prompt("Введите ваше имя:") || "Мастер";
+    localStorage.setItem('pokerUser', userName);
 
-    const fields = ['Подстолье', 'Стол', 'Борт', 'Накладка', 'Флот', 'Подсветка', 'Подстаканники'];
+    const fields = [
+        { id: 'podstole', name: 'Подстолье', type: 'toggle' },
+        { id: 'stol', name: 'Стол', type: 'select_size', opts: ['Стандарт (2430x1210)', 'Не стандарт'] },
+        { id: 'bort', name: 'Борт', type: 'input' },
+        { id: 'nakladka', name: 'Накладка', type: 'input' },
+        { id: 'fleet', name: 'Флот', type: 'toggle' },
+        { id: 'light', name: 'Подсветка', type: 'select', opts: ['Выкл', 'Снаружи', 'Внутри', 'По кругу'] },
+        { id: 'cups', name: 'Подстаканники (10 шт)', type: 'select', opts: ['Стандарт', 'Не стандарт'] }
+    ];
+
     const container = document.getElementById('app-fields');
-
     fields.forEach(f => {
-        container.innerHTML += `
-            <div class="card">
-                <label>${f}</label>
-                <input class="form-control" id="val-${f}" placeholder="Введите значение...">
-            </div>`;
+        let html = `<div class="card"><label>${f.name}</label>`;
+        if (f.type === 'toggle') html += `<div class="form-check form-switch"><input type="checkbox" class="form-check-input" id="${f.id}"></div>`;
+        else if (f.type === 'select' || f.type === 'select_size') {
+            html += `<select class="form-select" id="${f.id}" onchange="checkSize(this)">${f.opts.map(o => `<option>${o}</option>`).join('')}</select>`;
+            if(f.type === 'select_size') html += `<input class="form-control mt-2 d-none" id="custom-${f.id}" placeholder="Укажите размер (мм)...">`;
+        } else html += `<input class="form-control" id="${f.id}" placeholder="...">`;
+        
+        html += `<input class="form-control mt-2 note-input" id="note-${f.id}" placeholder="Примечание..."></div>`;
+        container.innerHTML += html;
     });
 
-    function saveData() {
-        let data = {};
-        fields.forEach(f => {
-            data[f] = document.getElementById(`val-${f}`).value;
-        });
-        db.ref('orders').push({
-            user: "Мастер",
-            timestamp: Date.now(),
-            details: data
-        });
-        alert("Сохранено!");
+    function checkSize(el) {
+        const custom = document.getElementById('custom-' + el.id);
+        if (el.value.includes('Не стандарт')) custom.classList.remove('d-none');
+        else custom.classList.add('d-none');
     }
+
+    function saveAll() {
+        let data = { timestamp: Date.now(), user: userName, details: {} };
+        fields.forEach(f => {
+            const val = document.getElementById(f.id);
+            const custom = document.getElementById('custom-' + f.id);
+            const note = document.getElementById('note-' + f.id);
+            let v = (f.type === 'toggle' ? (val.checked ? 'Да' : 'Нет') : val.value);
+            if (custom && !custom.classList.contains('d-none')) v += ' (' + custom.value + ')';
+            data.details[f.name] = v + (note.value ? ` | Прим: ${note.value}` : '');
+        });
+        db.ref('history').push(data);
+        alert("Конфигурация сохранена!");
+    }
+
+    db.ref('history').limitToLast(5).on('value', (snapshot) => {
+        const log = document.getElementById('history-log');
+        log.innerHTML = '';
+        snapshot.forEach(child => {
+            const v = child.val();
+            log.innerHTML += `<div class="history-item"><b>${v.user}</b>: ${JSON.stringify(v.details).replace(/[{}"']/g, '').replace(/,/g, '<br>')}</div>`;
+        });
+    });
 </script>
 </body>
 </html>
